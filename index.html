@@ -17,17 +17,20 @@
         <h1>Meridian</h1>
       </div>
       <div class="header-right">
-        <span class="local-time"></span>
-        <button class="back-to-now hidden">Back to now</button>
-        <button class="add-tz-btn" title="Add timezones">+</button>
+        <time class="local-time" aria-live="polite"></time>
+        <button class="back-to-now hidden" aria-label="Return to current time">Back to now</button>
+        <button class="add-tz-btn" title="Add timezones" aria-label="Add timezones">+</button>
       </div>
     </header>
-    <div class="tz-panel hidden">
+    <div class="tz-panel hidden" role="dialog" aria-label="Timezone picker">
       <div class="tz-panel-header">
         <h2>Timezones</h2>
-        <button class="tz-panel-close">&times;</button>
+        <button class="tz-panel-close" aria-label="Close timezone panel">&times;</button>
       </div>
-      <input type="text" class="tz-search" placeholder="Search cities or timezones..." autocomplete="off" />
+      <div class="tz-search-wrapper">
+        <input type="text" class="tz-search" placeholder="Search cities or timezones..." autocomplete="off" aria-label="Search timezones" />
+        <button class="tz-search-clear hidden" aria-label="Clear search">&times;</button>
+      </div>
       <div class="tz-panel-actions">
         <button class="tz-select-all">Select all</button>
       </div>

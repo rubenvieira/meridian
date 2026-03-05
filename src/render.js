@@ -22,9 +22,17 @@ export function buildGrid() {
   rowElements = [];
 
   const timezones = getSelectedTimezones();
-  for (const tz of timezones) {
+  const localZone = DateTime.now().zoneName;
+
+  timezones.forEach((tz, index) => {
     const row = document.createElement('div');
     row.className = 'tz-row';
+    row.style.animationDelay = `${index * 30}ms`;
+
+    // Highlight user's local timezone
+    if (tz.id === localZone) {
+      row.classList.add('local-tz');
+    }
 
     const label = document.createElement('div');
     label.className = 'tz-label';
@@ -66,7 +74,7 @@ export function buildGrid() {
       timeEl: label.querySelector('.tz-current-time'),
       metaEl: label.querySelector('.tz-meta'),
     });
-  }
+  });
 
   computeGridWidth();
   updateGrid();
@@ -86,6 +94,12 @@ export function updateGrid() {
   const localTimeEl = document.querySelector('.local-time');
   if (localTimeEl) {
     localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
+  }
+
+  // Update NOW label with actual time
+  const nowLabel = document.querySelector('.now-label');
+  if (nowLabel) {
+    nowLabel.textContent = now.toFormat('h:mm a');
   }
 
   // Show/hide back-to-now button

@@ -11,6 +11,7 @@ export function initPicker(onRebuild) {
   const panel = document.querySelector('.tz-panel');
   const searchInput = document.querySelector('.tz-search');
   const closeBtn = document.querySelector('.tz-panel-close');
+  const clearBtn = document.querySelector('.tz-search-clear');
 
   addBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -30,16 +31,57 @@ export function initPicker(onRebuild) {
     }
   });
 
-  // Escape to close
+  // Escape to close + arrow key nav in panel
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && state.isPanelOpen) {
       closePanel();
+      return;
+    }
+
+    // Arrow key navigation within panel items
+    if (state.isPanelOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      const items = [...panel.querySelectorAll('.tz-item')];
+      const idx = items.indexOf(document.activeElement);
+      if (idx >= 0) {
+        e.preventDefault();
+        const next = e.key === 'ArrowDown' ? idx + 1 : idx - 1;
+        if (items[next]) items[next].focus();
+      } else if (e.key === 'ArrowDown' && panel.contains(document.activeElement)) {
+        e.preventDefault();
+        if (items[0]) items[0].focus();
+      }
+    }
+
+    // Focus trap
+    if (state.isPanelOpen && e.key === 'Tab') {
+      const focusable = panel.querySelectorAll(
+        'button:not(.hidden), input, [tabindex="0"]'
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
   });
 
-  // Search filtering
+  // Search filtering with clear button
   searchInput.addEventListener('input', () => {
-    renderTimezoneList(searchInput.value.trim());
+    const val = searchInput.value.trim();
+    clearBtn.classList.toggle('hidden', val.length === 0);
+    renderTimezoneList(val);
+  });
+
+  clearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    clearBtn.classList.add('hidden');
+    renderTimezoneList('');
+    searchInput.focus();
   });
 
   // Select all / deselect all
@@ -53,7 +95,7 @@ export function initPicker(onRebuild) {
     } else {
       saveSelectedTimezoneIds(ALL_TIMEZONES.map(tz => tz.id));
     }
-    renderTimezoneList(searchInput.value.trim());
+    renderTimezoneList(document.querySelector('.tz-search').value.trim());
     if (rebuildCallback) rebuildCallback();
   });
 
@@ -66,14 +108,44 @@ export function initPicker(onRebuild) {
     toggleTimezone(tzId);
     renderTimezoneList(searchInput.value.trim());
   });
+
+  // Enter/Space on focused tz-item
+  list.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const item = e.target.closest('.tz-item');
+      if (!item) return;
+      e.preventDefault();
+      const tzId = item.dataset.tzId;
+      toggleTimezone(tzId);
+      renderTimezoneList(searchInput.value.trim());
+      // Re-focus the item at same position
+      requestAnimationFrame(() => {
+        const items = [...list.querySelectorAll('.tz-item')];
+        const match = items.find(el => el.dataset.tzId === tzId);
+        if (match) match.focus();
+      });
+    }
+  });
 }
 
 function openPanel() {
   state.isPanelOpen = true;
   const panel = document.querySelector('.tz-panel');
+  const header = document.querySelector('.header');
   const searchInput = document.querySelector('.tz-search');
+  const clearBtn = document.querySelector('.tz-search-clear');
+
+  // Dynamic panel positioning (desktop only — mobile uses bottom: 0)
+  if (window.innerWidth > 480) {
+    panel.style.top = `${header.offsetHeight}px`;
+  } else {
+    panel.style.top = 'auto';
+  }
+
   panel.classList.remove('hidden');
+  panel.classList.remove('closing');
   searchInput.value = '';
+  clearBtn.classList.add('hidden');
   renderTimezoneList('');
   // Focus search after animation
   requestAnimationFrame(() => searchInput.focus());
@@ -81,7 +153,14 @@ function openPanel() {
 
 function closePanel() {
   state.isPanelOpen = false;
-  document.querySelector('.tz-panel').classList.add('hidden');
+  const panel = document.querySelector('.tz-panel');
+  panel.classList.add('closing');
+  panel.addEventListener('animationend', () => {
+    panel.classList.add('hidden');
+    panel.classList.remove('closing');
+  }, { once: true });
+  // Return focus to the trigger button
+  document.querySelector('.add-tz-btn').focus();
 }
 
 function renderTimezoneList(filter) {
@@ -105,24 +184,40 @@ function renderTimezoneList(filter) {
       )
     : sorted;
 
-  // Update select all button text
+  // Update select all button text with count
   const selectAllBtn = document.querySelector('.tz-select-all');
   const allSelected = ALL_TIMEZONES.every(tz => selectedIds.includes(tz.id));
-  selectAllBtn.textContent = allSelected ? 'Deselect all' : 'Select all';
+  const selectedCount = selectedIds.length;
+  const totalCount = ALL_TIMEZONES.length;
+  selectAllBtn.textContent = allSelected
+    ? `Deselect all (${totalCount})`
+    : `Select all (${totalCount - selectedCount} more)`;
 
+  // Empty state
+  if (filtered.length === 0) {
+    list.innerHTML = `
+      <div class="tz-empty-state">
+        <p>No timezones match "${filter}"</p>
+      </div>
+    `;
+    return;
+  }
+
+  list.setAttribute('role', 'listbox');
   list.innerHTML = filtered.map(tz => {
     const isSelected = selectedIds.includes(tz.id);
     const zoneDt = now.setZone(tz.id);
     const offset = zoneDt.toFormat('ZZ');
     const time = zoneDt.toFormat('h:mm a');
     return `
-      <div class="tz-item ${isSelected ? 'active' : ''}" data-tz-id="${tz.id}">
+      <div class="tz-item ${isSelected ? 'active' : ''}" data-tz-id="${tz.id}" tabindex="0" role="option" aria-selected="${isSelected}">
         <span class="tz-item-flag">${tz.flag}</span>
         <div class="tz-item-info">
           <span class="tz-item-name">${tz.label}</span>
           <span class="tz-item-offset">UTC${offset} · ${time}</span>
         </div>
         <div class="tz-item-toggle">
+          <input type="checkbox" class="sr-only" ${isSelected ? 'checked' : ''} aria-label="Toggle ${tz.label}" tabindex="-1" />
           <div class="toggle-track ${isSelected ? 'on' : ''}">
             <div class="toggle-thumb"></div>
           </div>

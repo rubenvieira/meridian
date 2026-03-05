@@ -11,6 +11,16 @@ buildGrid();
 // Set up drag interaction
 initDrag();
 
+// Show drag affordance hint on first visit per session
+if (!sessionStorage.getItem('meridian-drag-hint-shown')) {
+  const gridContainer = document.querySelector('.grid-container');
+  gridContainer.classList.add('show-drag-hint');
+  gridContainer.addEventListener('animationend', () => {
+    gridContainer.classList.remove('show-drag-hint');
+  }, { once: true });
+  sessionStorage.setItem('meridian-drag-hint-shown', '1');
+}
+
 // Set up timezone picker
 initPicker(buildGrid);
 
