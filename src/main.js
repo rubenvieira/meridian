@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { state } from './state.js';
+import { state, getStateFromURL, updateURL } from './state.js';
 import { buildGrid, updateGrid, onResize } from './render.js';
 import { initDrag } from './drag.js';
 import { initPicker } from './picker.js';
@@ -7,6 +7,13 @@ import './style.css';
 
 // Build initial grid
 buildGrid();
+
+// Restore time from URL hash if present
+const urlDt = getStateFromURL();
+if (urlDt) {
+  state.selectedDt = urlDt;
+  updateGrid();
+}
 
 // Set up drag interaction
 initDrag();
@@ -56,12 +63,14 @@ initPicker(buildGrid);
 document.querySelector('.back-to-now').addEventListener('click', () => {
   state.selectedDt = DateTime.now();
   updateGrid();
+  updateURL();
 });
 
 // Double-click grid to reset to now
 document.querySelector('.grid-container').addEventListener('dblclick', () => {
   state.selectedDt = DateTime.now();
   updateGrid();
+  updateURL();
 });
 
 // Keyboard navigation: Left/Right arrow keys to shift hours
@@ -72,10 +81,12 @@ document.addEventListener('keydown', (e) => {
     e.preventDefault();
     state.selectedDt = state.selectedDt.minus({ hours: 1 });
     updateGrid();
+    updateURL(false);
   } else if (e.key === 'ArrowRight') {
     e.preventDefault();
     state.selectedDt = state.selectedDt.plus({ hours: 1 });
     updateGrid();
+    updateURL(false);
   }
 });
 
@@ -83,7 +94,6 @@ document.addEventListener('keydown', (e) => {
 function tick() {
   if (!state.isDragging) {
     const now = DateTime.now();
-    const backBtn = document.querySelector('.back-to-now');
     const isAway = Math.abs(state.selectedDt.diff(now, 'minutes').minutes) >= 2;
 
     if (!isAway) {
@@ -101,5 +111,20 @@ function scheduleNextTick() {
 
 scheduleNextTick();
 
-// Handle resize
-window.addEventListener('resize', onResize);
+// Handle resize (debounced)
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(onResize, 150);
+});
+
+// Handle URL hash changes (browser back/forward, manual edits)
+window.addEventListener('hashchange', () => {
+  const dt = getStateFromURL();
+  if (dt) {
+    state.selectedDt = dt;
+  } else {
+    state.selectedDt = DateTime.now();
+  }
+  updateGrid();
+});

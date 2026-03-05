@@ -10,6 +10,11 @@ let cellWidth = 60;
 let gridAreaWidth = 0;
 let rowElements = [];
 
+// Cached DOM references (populated in buildGrid)
+let localTimeEl = null;
+let nowLabelEl = null;
+let backBtnEl = null;
+
 export function getCellWidth() {
   return cellWidth;
 }
@@ -83,6 +88,11 @@ export function buildGrid() {
     });
   });
 
+  // Cache static DOM references
+  localTimeEl = document.querySelector('.local-time');
+  nowLabelEl = document.querySelector('.now-label');
+  backBtnEl = document.querySelector('.back-to-now');
+
   computeGridWidth();
   updateGrid();
 }
@@ -96,12 +106,12 @@ function computeGridWidth() {
 
 export function updateGrid() {
   const now = DateTime.now();
+  const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
+  const isNearNow = diffMinutes < 2;
 
   // Update header local time
-  const localTimeEl = document.querySelector('.local-time');
   if (localTimeEl) {
-    const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
-    if (diffMinutes < 2) {
+    if (isNearNow) {
       localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
     } else {
       localTimeEl.textContent = `Viewing: ${state.selectedDt.toFormat('cccc, LLL d · h:mm a')}`;
@@ -109,16 +119,13 @@ export function updateGrid() {
   }
 
   // Update NOW label with actual time
-  const nowLabel = document.querySelector('.now-label');
-  if (nowLabel) {
-    nowLabel.textContent = now.toFormat('h:mm a');
+  if (nowLabelEl) {
+    nowLabelEl.textContent = now.toFormat('h:mm a');
   }
 
   // Show/hide back-to-now button
-  const backBtn = document.querySelector('.back-to-now');
-  if (backBtn) {
-    const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
-    backBtn.classList.toggle('hidden', diffMinutes < 2);
+  if (backBtnEl) {
+    backBtnEl.classList.toggle('hidden', isNearNow);
   }
 
   // Compute translate offset
@@ -150,7 +157,6 @@ export function updateGrid() {
       // Time class (per-hour color)
       const timeClass = getHourClass(hour);
       cell.className = 'hour-cell ' + timeClass;
-      cell.setAttribute('role', 'gridcell');
       cell.setAttribute('aria-label', cellDt.toFormat('cccc, LLLL d, h a ZZZZ'));
       cell.dataset.hour = hour;
 

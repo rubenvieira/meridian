@@ -1,8 +1,9 @@
 import { DateTime } from 'luxon';
-import { state } from './state.js';
+import { state, updateURL } from './state.js';
 import { getCellWidth, updateGrid } from './render.js';
 
 const CLICK_THRESHOLD = 5; // px
+let rafId = null;
 
 export function initDrag() {
   const container = document.querySelector('.grid-container');
@@ -25,11 +26,18 @@ export function initDrag() {
     const cellWidth = getCellWidth();
     const deltaHours = -deltaX / cellWidth;
     state.selectedDt = state.dragStartDt.plus({ hours: deltaHours });
-    updateGrid();
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => {
+        updateGrid();
+        rafId = null;
+      });
+    }
   });
 
   container.addEventListener('pointerup', (e) => {
     if (!state.isDragging) return;
+    cancelAnimationFrame(rafId);
+    rafId = null;
     const deltaX = Math.abs(e.clientX - state.dragStartX);
     state.isDragging = false;
     container.classList.remove('dragging');
@@ -45,6 +53,7 @@ export function initDrag() {
       const diffToNext = Math.abs(state.selectedDt.diff(nextHour, 'minutes').minutes);
       state.selectedDt = diffToRounded <= diffToNext ? rounded : nextHour;
       updateGrid();
+      updateURL(false);
     }
   });
 
@@ -66,4 +75,5 @@ function handleClick(e) {
   const now = DateTime.now();
   state.selectedDt = now.plus({ hours: offsetHours }).startOf('hour');
   updateGrid();
+  updateURL(false);
 }
