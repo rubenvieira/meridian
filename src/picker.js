@@ -162,11 +162,17 @@ function closePanel() {
   state.isPanelOpen = false;
   const panel = document.querySelector('.tz-panel');
   document.querySelector('.tz-panel-backdrop').classList.add('hidden');
-  panel.classList.add('closing');
-  panel.addEventListener('animationend', () => {
+
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) {
     panel.classList.add('hidden');
-    panel.classList.remove('closing');
-  }, { once: true });
+  } else {
+    panel.classList.add('closing');
+    panel.addEventListener('animationend', () => {
+      panel.classList.add('hidden');
+      panel.classList.remove('closing');
+    }, { once: true });
+  }
   // Return focus to the trigger button
   document.querySelector('.add-tz-btn').focus();
 }
@@ -213,6 +219,7 @@ function renderTimezoneList(filter) {
   }
 
   list.setAttribute('role', 'listbox');
+  const prevScroll = list.scrollTop;
   list.innerHTML = filtered.map(tz => {
     const isSelected = selectedIds.includes(tz.id);
     const zoneDt = now.setZone(tz.id);
@@ -234,6 +241,7 @@ function renderTimezoneList(filter) {
       </div>
     `;
   }).join('');
+  list.scrollTop = prevScroll;
 }
 
 function toggleTimezone(tzId) {
@@ -241,7 +249,17 @@ function toggleTimezone(tzId) {
   const index = ids.indexOf(tzId);
   if (index >= 0) {
     // Don't allow removing the last timezone
-    if (ids.length <= 1) return;
+    if (ids.length <= 1) {
+      const item = document.querySelector(`.tz-item[data-tz-id="${tzId}"]`);
+      if (item) {
+        const track = item.querySelector('.toggle-track');
+        track.classList.remove('shake');
+        void track.offsetWidth; // force reflow for re-trigger
+        track.classList.add('shake');
+        track.addEventListener('animationend', () => track.classList.remove('shake'), { once: true });
+      }
+      return;
+    }
     ids.splice(index, 1);
   } else {
     ids.push(tzId);

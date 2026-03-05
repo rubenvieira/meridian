@@ -12,13 +12,41 @@ buildGrid();
 initDrag();
 
 // Show drag affordance hint on first visit per session
-if (!sessionStorage.getItem('meridian-drag-hint-shown')) {
+let dragHintShown = false;
+try { dragHintShown = sessionStorage.getItem('meridian-drag-hint-shown'); } catch (e) {}
+if (!dragHintShown) {
   const gridContainer = document.querySelector('.grid-container');
   gridContainer.classList.add('show-drag-hint');
   gridContainer.addEventListener('animationend', () => {
     gridContainer.classList.remove('show-drag-hint');
   }, { once: true });
-  sessionStorage.setItem('meridian-drag-hint-shown', '1');
+  try { sessionStorage.setItem('meridian-drag-hint-shown', '1'); } catch (e) {}
+}
+
+// Show keyboard shortcuts hint on first visit
+let shortcutsShown = false;
+try { shortcutsShown = sessionStorage.getItem('meridian-shortcuts-shown'); } catch (e) {}
+if (!shortcutsShown) {
+  const hint = document.createElement('div');
+  hint.className = 'shortcuts-hint';
+  hint.innerHTML = '<kbd>&larr;</kbd><kbd>&rarr;</kbd> shift hours &middot; double-click to reset &middot; <kbd>Esc</kbd> close panel';
+  hint.setAttribute('role', 'status');
+  document.querySelector('#app').appendChild(hint);
+
+  const dismiss = () => {
+    hint.classList.add('fade-out');
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      hint.remove();
+    } else {
+      hint.addEventListener('animationend', () => hint.remove(), { once: true });
+    }
+  };
+
+  setTimeout(dismiss, 6000);
+  document.addEventListener('keydown', dismiss, { once: true });
+  hint.addEventListener('click', dismiss);
+
+  try { sessionStorage.setItem('meridian-shortcuts-shown', '1'); } catch (e) {}
 }
 
 // Set up timezone picker

@@ -19,6 +19,7 @@ export function buildGrid() {
   cellWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-width'));
 
   container.innerHTML = '';
+  container.setAttribute('role', 'grid');
   rowElements = [];
 
   const timezones = getSelectedTimezones();
@@ -31,6 +32,7 @@ export function buildGrid() {
   timezones.forEach((tz, index) => {
     const row = document.createElement('div');
     row.className = 'tz-row';
+    row.setAttribute('role', 'row');
     row.style.animationDelay = `${index * 30}ms`;
 
     // Highlight user's local timezone
@@ -51,7 +53,7 @@ export function buildGrid() {
         <span class="tz-name">${tz.label}</span>
         <span class="tz-meta">${abbr} · UTC${offset}</span>
       </div>
-      <span class="tz-current-time"></span>
+      <time class="tz-current-time"></time>
     `;
 
     const strip = document.createElement('div');
@@ -61,6 +63,7 @@ export function buildGrid() {
     for (let i = 0; i < TOTAL_HOURS; i++) {
       const cell = document.createElement('div');
       cell.className = 'hour-cell';
+      cell.setAttribute('role', 'gridcell');
       cell.innerHTML = '<span class="hour-text"></span>';
       strip.appendChild(cell);
       cells.push(cell);
@@ -147,6 +150,8 @@ export function updateGrid() {
       // Time class (per-hour color)
       const timeClass = getHourClass(hour);
       cell.className = 'hour-cell ' + timeClass;
+      cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('aria-label', cellDt.toFormat('cccc, LLLL d, h a ZZZZ'));
       cell.dataset.hour = hour;
 
       // Selected highlight
@@ -167,6 +172,7 @@ export function updateGrid() {
     // Update current time display in label
     const displayDt = selectedInZone;
     timeEl.textContent = displayDt.toFormat('h:mm a');
+    timeEl.setAttribute('datetime', displayDt.toISO());
 
     // Update meta (abbreviation + offset + relative diff)
     const abbr = selectedInZone.toFormat('ZZZZ');
