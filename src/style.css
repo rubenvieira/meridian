@@ -1,0 +1,634 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --cell-width: 60px;
+  --label-width: 220px;
+  --row-height: 48px;
+  --total-hours: 49;
+
+  /* Background */
+  --color-bg: #0a0e1a;
+  --color-border: rgba(255, 255, 255, 0.07);
+
+  /* Glass */
+  --glass-bg: rgba(12, 16, 32, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-blur: 20px;
+
+  /* Now line */
+  --color-now-glow: rgba(251, 113, 133, 0.5);
+  --color-now-core: #fb7185;
+
+  /* Selection */
+  --color-selected-ring: rgba(165, 180, 252, 0.7);
+  --color-selected-glow: rgba(129, 140, 248, 0.4);
+
+  /* Text */
+  --text-primary: #f1f5f9;
+  --text-secondary: rgba(148, 163, 184, 0.9);
+  --text-muted: rgba(100, 116, 139, 0.8);
+
+  /* Timing */
+  --transition-fast: 0.15s ease;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--color-bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  position: relative;
+}
+
+/* ========== NOISE OVERLAY ========== */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  opacity: 0.028;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+/* ========== HEADER ========== */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+  z-index: 20;
+}
+
+.header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg, #e2e8f0 0%, #a5b4fc 60%, #818cf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.local-time {
+  font-size: 14px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* ========== BACK TO NOW BUTTON ========== */
+.back-to-now {
+  padding: 7px 16px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #fb7185, #f43f5e);
+  color: white;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 0 16px rgba(244, 63, 94, 0.3);
+  letter-spacing: -0.01em;
+}
+
+.back-to-now:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 24px rgba(244, 63, 94, 0.5);
+}
+
+.back-to-now.hidden {
+  display: none;
+}
+
+/* ========== GRID CONTAINER ========== */
+.grid-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.grid-container.dragging {
+  cursor: grabbing;
+}
+
+.grid-rows {
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* ========== NOW LINE ========== */
+.now-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--label-width) + ((100% - var(--label-width)) / 2));
+  width: 2px;
+  background: var(--color-now-core);
+  z-index: 10;
+  pointer-events: none;
+  box-shadow:
+    0 0 8px var(--color-now-glow),
+    0 0 20px var(--color-now-glow),
+    0 0 40px rgba(251, 113, 133, 0.15);
+  animation: now-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes now-pulse {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 8px var(--color-now-glow), 0 0 20px var(--color-now-glow);
+  }
+  50% {
+    opacity: 0.85;
+    box-shadow: 0 0 12px var(--color-now-glow), 0 0 32px var(--color-now-glow), 0 0 48px rgba(251, 113, 133, 0.12);
+  }
+}
+
+.now-label {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #fb7185, #f43f5e);
+  color: white;
+  font-family: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 0 0 6px 6px;
+  letter-spacing: 0.1em;
+  box-shadow: 0 2px 10px rgba(244, 63, 94, 0.4);
+}
+
+/* ========== TIMEZONE ROW ========== */
+.tz-row {
+  display: flex;
+  height: var(--row-height);
+  border-bottom: 1px solid var(--color-border);
+  transition: filter var(--transition-fast);
+}
+
+.tz-row:hover {
+  filter: brightness(1.08);
+}
+
+/* ========== LABEL COLUMN (GLASS) ========== */
+.tz-label {
+  width: var(--label-width);
+  min-width: var(--label-width);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  z-index: 5;
+  position: sticky;
+  left: 0;
+  border-right: 1px solid var(--glass-border);
+  transition: background var(--transition-fast);
+}
+
+.tz-row:hover .tz-label {
+  background: rgba(25, 32, 60, 0.88);
+}
+
+.tz-flag {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.tz-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tz-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.01em;
+}
+
+.tz-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+.tz-current-time {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: auto;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+/* ========== HOUR STRIP ========== */
+.hour-strip {
+  display: flex;
+  flex-shrink: 0;
+  will-change: transform;
+}
+
+/* ========== HOUR CELL BASE ========== */
+.hour-cell {
+  width: var(--cell-width);
+  min-width: var(--cell-width);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 500;
+  position: relative;
+  font-variant-numeric: tabular-nums;
+  transition: filter 0.1s ease;
+}
+
+/* ========== 24-HOUR COLOR SPECTRUM ========== */
+
+/* Deep night: rich indigo-navy */
+.hour-cell.hour-0  { background: #0f0b2e; color: rgba(148,163,184,0.65); }
+.hour-cell.hour-1  { background: #110d30; color: rgba(148,163,184,0.60); }
+.hour-cell.hour-2  { background: #0e0a2c; color: rgba(148,163,184,0.60); }
+.hour-cell.hour-3  { background: #100c2e; color: rgba(148,163,184,0.65); }
+.hour-cell.hour-4  { background: #151035; color: rgba(148,163,184,0.65); }
+
+/* Pre-dawn: dark purple hint */
+.hour-cell.hour-5  { background: #1e1545; color: rgba(180,180,210,0.75); }
+
+/* Dawn: purple-rose */
+.hour-cell.hour-6  { background: #3b1f5e; color: rgba(220,200,220,0.85); }
+
+/* Sunrise: warm peach-coral */
+.hour-cell.hour-7  { background: #7c3a5e; color: rgba(255,230,220,0.9); }
+.hour-cell.hour-8  { background: #c0604a; color: #f5e0d8; }
+
+/* Morning golden */
+.hour-cell.hour-9  { background: #e8a44c; color: #3a2510; }
+.hour-cell.hour-10 { background: #f0c75e; color: #3a3010; }
+
+/* Midday: bright warm */
+.hour-cell.hour-11 { background: #f5dfa0; color: #4a4020; }
+.hour-cell.hour-12 { background: #fdf0c8; color: #4a4525; }
+.hour-cell.hour-13 { background: #f8e8b0; color: #4a4020; }
+
+/* Afternoon */
+.hour-cell.hour-14 { background: #f0d888; color: #4a3a18; }
+.hour-cell.hour-15 { background: #e8c468; color: #4a3518; }
+
+/* Golden hour */
+.hour-cell.hour-16 { background: #dda84c; color: #3a2810; }
+.hour-cell.hour-17 { background: #cc8040; color: #2a1808; }
+
+/* Sunset: deep orange-coral-rose */
+.hour-cell.hour-18 { background: #a85540; color: rgba(255,220,200,0.88); }
+.hour-cell.hour-19 { background: #6e3050; color: rgba(220,200,210,0.82); }
+
+/* Twilight: deep purple */
+.hour-cell.hour-20 { background: #3a1d55; color: rgba(200,190,220,0.78); }
+
+/* Dusk: indigo */
+.hour-cell.hour-21 { background: #251548; color: rgba(170,170,200,0.72); }
+
+/* Night returns */
+.hour-cell.hour-22 { background: #1a1040; color: rgba(148,163,184,0.68); }
+.hour-cell.hour-23 { background: #130c35; color: rgba(148,163,184,0.65); }
+
+/* ========== SELECTED STATE ========== */
+.hour-cell.selected {
+  z-index: 2;
+  outline: 2px solid var(--color-selected-ring);
+  outline-offset: -2px;
+  filter: brightness(1.25) saturate(1.15);
+  box-shadow:
+    inset 0 0 14px rgba(129, 140, 248, 0.18),
+    0 0 10px var(--color-selected-glow);
+}
+
+/* ========== DAY BOUNDARY ========== */
+.hour-cell.day-boundary {
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.hour-cell .day-label {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 8px;
+  font-weight: 700;
+  opacity: 0.55;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ========== HOUR TEXT ========== */
+.hour-text {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== ADD TIMEZONE BUTTON ========== */
+.add-tz-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.add-tz-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.05);
+}
+
+/* ========== TIMEZONE PICKER PANEL ========== */
+.tz-panel {
+  position: absolute;
+  top: 56px;
+  right: 16px;
+  width: 360px;
+  max-height: 70vh;
+  background: rgba(14, 18, 36, 0.92);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 1px rgba(255, 255, 255, 0.1);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: panel-in 0.2s ease;
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tz-panel.hidden {
+  display: none;
+}
+
+.tz-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px 12px;
+}
+
+.tz-panel-header h2 {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.tz-panel-close {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.tz-panel-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-primary);
+}
+
+.tz-search {
+  margin: 0 14px 10px;
+  padding: 9px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.tz-search::placeholder {
+  color: var(--text-muted);
+}
+
+.tz-search:focus {
+  border-color: rgba(129, 140, 248, 0.4);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.1);
+}
+
+.tz-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 14px 8px;
+}
+
+.tz-select-all {
+  border: none;
+  background: none;
+  color: rgba(129, 140, 248, 0.9);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all var(--transition-fast);
+}
+
+.tz-select-all:hover {
+  color: #a5b4fc;
+  background: rgba(129, 140, 248, 0.1);
+}
+
+.tz-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.1) transparent;
+}
+
+.tz-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tz-list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 3px;
+}
+
+.tz-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.tz-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tz-item.active {
+  background: rgba(129, 140, 248, 0.1);
+}
+
+.tz-item.active:hover {
+  background: rgba(129, 140, 248, 0.15);
+}
+
+.tz-item-flag {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.tz-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tz-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+.tz-item-offset {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tz-item-toggle {
+  flex-shrink: 0;
+}
+
+.toggle-track {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  position: relative;
+  transition: background 0.2s ease;
+}
+
+.toggle-track.on {
+  background: rgba(129, 140, 248, 0.6);
+}
+
+.toggle-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.7);
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.toggle-track.on .toggle-thumb {
+  transform: translateX(16px);
+  background: white;
+}
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 768px) {
+  :root {
+    --cell-width: 44px;
+    --label-width: 150px;
+    --row-height: 44px;
+  }
+
+  .tz-flag { display: none; }
+  .tz-meta { display: none; }
+  .tz-name { font-size: 12px; }
+  .tz-current-time { font-size: 12px; }
+  .header h1 { font-size: 16px; }
+  .header { padding: 12px 16px; }
+}
+
+@media (max-width: 480px) {
+  :root {
+    --cell-width: 36px;
+    --label-width: 110px;
+  }
+}

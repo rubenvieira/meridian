@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meridian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="app">
+    <div class="noise-overlay" aria-hidden="true"></div>
+    <header class="header">
+      <div class="header-left">
+        <h1>Meridian</h1>
+      </div>
+      <div class="header-right">
+        <span class="local-time"></span>
+        <button class="back-to-now hidden">Back to now</button>
+        <button class="add-tz-btn" title="Add timezones">+</button>
+      </div>
+    </header>
+    <div class="tz-panel hidden">
+      <div class="tz-panel-header">
+        <h2>Timezones</h2>
+        <button class="tz-panel-close">&times;</button>
+      </div>
+      <input type="text" class="tz-search" placeholder="Search cities or timezones..." autocomplete="off" />
+      <div class="tz-panel-actions">
+        <button class="tz-select-all">Select all</button>
+      </div>
+      <div class="tz-list"></div>
+    </div>
+    <div class="grid-container">
+      <div class="now-line"><span class="now-label">NOW</span></div>
+      <div class="grid-rows"></div>
+    </div>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
