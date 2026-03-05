@@ -24,6 +24,10 @@ export function buildGrid() {
   const timezones = getSelectedTimezones();
   const localZone = DateTime.now().zoneName;
 
+  // Update timezone count badge
+  const badge = document.querySelector('.tz-count-badge');
+  if (badge) badge.textContent = timezones.length;
+
   timezones.forEach((tz, index) => {
     const row = document.createElement('div');
     row.className = 'tz-row';
@@ -93,7 +97,12 @@ export function updateGrid() {
   // Update header local time
   const localTimeEl = document.querySelector('.local-time');
   if (localTimeEl) {
-    localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
+    const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
+    if (diffMinutes < 2) {
+      localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
+    } else {
+      localTimeEl.textContent = `Viewing: ${state.selectedDt.toFormat('cccc, LLL d · h:mm a')}`;
+    }
   }
 
   // Update NOW label with actual time
@@ -159,10 +168,14 @@ export function updateGrid() {
     const displayDt = selectedInZone;
     timeEl.textContent = displayDt.toFormat('h:mm a');
 
-    // Update meta (abbreviation + offset)
+    // Update meta (abbreviation + offset + relative diff)
     const abbr = selectedInZone.toFormat('ZZZZ');
     const offset = selectedInZone.toFormat('ZZ');
-    metaEl.textContent = `${abbr} · UTC${offset}`;
+    const localOffset = state.selectedDt.offset; // in minutes
+    const tzOffset = selectedInZone.offset; // in minutes
+    const diffHours = (tzOffset - localOffset) / 60;
+    const diffStr = diffHours === 0 ? '' : diffHours > 0 ? ` · +${diffHours}h` : ` · ${diffHours}h`;
+    metaEl.textContent = `${abbr} · UTC${offset}${diffStr}`;
   }
 }
 

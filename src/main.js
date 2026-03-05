@@ -30,6 +30,27 @@ document.querySelector('.back-to-now').addEventListener('click', () => {
   updateGrid();
 });
 
+// Double-click grid to reset to now
+document.querySelector('.grid-container').addEventListener('dblclick', () => {
+  state.selectedDt = DateTime.now();
+  updateGrid();
+});
+
+// Keyboard navigation: Left/Right arrow keys to shift hours
+document.addEventListener('keydown', (e) => {
+  if (state.isPanelOpen) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    state.selectedDt = state.selectedDt.minus({ hours: 1 });
+    updateGrid();
+  } else if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    state.selectedDt = state.selectedDt.plus({ hours: 1 });
+    updateGrid();
+  }
+});
+
 // Real-time tick — update every minute when not dragging
 function tick() {
   if (!state.isDragging) {

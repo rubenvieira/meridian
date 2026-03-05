@@ -12,6 +12,12 @@ export function initPicker(onRebuild) {
   const searchInput = document.querySelector('.tz-search');
   const closeBtn = document.querySelector('.tz-panel-close');
   const clearBtn = document.querySelector('.tz-search-clear');
+  const backdrop = document.querySelector('.tz-panel-backdrop');
+
+  // Clicking backdrop closes panel
+  backdrop.addEventListener('click', () => {
+    if (state.isPanelOpen) closePanel();
+  });
 
   addBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -144,6 +150,7 @@ function openPanel() {
 
   panel.classList.remove('hidden');
   panel.classList.remove('closing');
+  document.querySelector('.tz-panel-backdrop').classList.remove('hidden');
   searchInput.value = '';
   clearBtn.classList.add('hidden');
   renderTimezoneList('');
@@ -154,6 +161,7 @@ function openPanel() {
 function closePanel() {
   state.isPanelOpen = false;
   const panel = document.querySelector('.tz-panel');
+  document.querySelector('.tz-panel-backdrop').classList.add('hidden');
   panel.classList.add('closing');
   panel.addEventListener('animationend', () => {
     panel.classList.add('hidden');
@@ -195,9 +203,10 @@ function renderTimezoneList(filter) {
 
   // Empty state
   if (filtered.length === 0) {
+    const escaped = filter.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     list.innerHTML = `
       <div class="tz-empty-state">
-        <p>No timezones match "${filter}"</p>
+        <p>No timezones match "${escaped}"</p>
       </div>
     `;
     return;

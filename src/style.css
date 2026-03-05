@@ -168,6 +168,11 @@ html, body {
   box-shadow: 0 0 24px rgba(244, 63, 94, 0.5);
 }
 
+.back-to-now:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.3);
+}
+
 .back-to-now.hidden {
   opacity: 0;
   max-width: 0;
@@ -361,6 +366,11 @@ html, body {
   display: flex;
   flex-shrink: 0;
   will-change: transform;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.grid-container.dragging .hour-strip {
+  transition: none;
 }
 
 /* ========== HOUR CELL BASE ========== */
@@ -428,6 +438,11 @@ html, body {
 .hour-cell.hour-22 { background: #1a1040; color: rgba(148,163,184,0.68); }
 .hour-cell.hour-23 { background: #130c35; color: rgba(148,163,184,0.65); }
 
+.hour-cell:hover {
+  filter: brightness(1.15);
+  z-index: 1;
+}
+
 /* ========== SELECTED STATE ========== */
 .hour-cell.selected {
   z-index: 2;
@@ -489,11 +504,71 @@ html, body {
   -webkit-backdrop-filter: blur(8px);
 }
 
+.add-tz-btn {
+  position: relative;
+}
+
+.add-tz-icon {
+  font-size: inherit;
+}
+
+.tz-count-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(129, 140, 248, 0.8);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  line-height: 1;
+}
+
 .add-tz-btn:hover {
   background: rgba(255, 255, 255, 0.12);
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.2);
   transform: scale(1.05);
+}
+
+.add-tz-btn:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.18);
+}
+
+/* ========== PANEL BACKDROP ========== */
+.tz-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 40;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.tz-panel-backdrop.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ========== PANEL DRAG HANDLE ========== */
+.tz-panel-handle {
+  display: none;
+  justify-content: center;
+  padding: 10px 0 2px;
+}
+
+.tz-panel-handle span {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* ========== TIMEZONE PICKER PANEL ========== */
@@ -568,6 +643,11 @@ html, body {
 .tz-panel-close:hover {
   background: rgba(255, 255, 255, 0.12);
   color: var(--text-primary);
+}
+
+.tz-panel-close:active {
+  transform: scale(0.92);
+  background: rgba(255, 255, 255, 0.18);
 }
 
 .tz-search-wrapper {
@@ -828,6 +908,9 @@ html, body {
   }
   .tz-panel.closing {
     animation: panel-out-mobile 0.2s ease forwards;
+  }
+  .tz-panel-handle {
+    display: flex;
   }
 }
 
