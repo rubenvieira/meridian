@@ -1,0 +1,81 @@
+name: Deploy to DigitalOcean Droplet
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        if: hashFiles('package.json') != ''
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install and Build for Node.js Project
+        if: hashFiles('package.json') != ''
+        env:
+          PUBLIC_URL: /tools/meridian
+        run: |
+          npm install
+          if grep -q "vite" package.json; then
+            # Patch React Router to use the correct basename for subpath hosting
+            if [ -f "src/App.tsx" ] && grep -q "BrowserRouter" src/App.tsx; then
+              sed -i 's|<BrowserRouter>|<BrowserRouter basename="/tools/meridian">|g' src/App.tsx
+            fi
+            # Build with Vite using the --base flag to set correct asset paths
+            npx vite build --base=/tools/meridian/
+          else
+            npm run build
+          fi
+
+      - name: Verify SSH Key Secret
+        run: |
+          if [ -z "${{ secrets.DROPLET_SSH_KEY }}" ]; then
+            echo "::error::DROPLET_SSH_KEY secret is not set in the GitHub repository secrets. Please check the Supabase project's environment variables and the 'create-github-repo' Edge Function logs for validation errors."
+            exit 1
+          fi
+          echo "DROPLET_SSH_KEY secret is present. Proceeding with deployment."
+
+      - name: Deploy Node.js project
+        if: hashFiles('package.json') != ''
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "dist/**"
+          target: "/var/www/rubenv.net/htdocs/tools/meridian"
+          overwrite: true
+          strip_components: 1
+
+      - name: Deploy Static Site
+        if: hashFiles('package.json') == ''
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          source: "./"
+          target: "/var/www/rubenv.net/htdocs/tools/meridian"
+          overwrite: true
+
+      - name: Clean up static site deployment
+        if: hashFiles('package.json') == ''
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DROPLET_HOST }}
+          username: ${{ secrets.DROPLET_USER }}
+          key: ${{ secrets.DROPLET_SSH_KEY }}
+          script: |
+            echo "Cleaning up deployment for meridian..."
+            rm -rf /var/www/rubenv.net/htdocs/tools/meridian/.git
+            rm -rf /var/www/rubenv.net/htdocs/tools/meridian/.github
+            echo "Cleanup complete."
