@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Visualize time across multiple timezones with an interactive, draggable timeline">
+  <meta name="theme-color" content="#0a0e1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
   <title>Meridian</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,17 +22,25 @@
         <h1>Meridian</h1>
       </div>
       <div class="header-right">
-        <span class="local-time"></span>
-        <button class="back-to-now hidden">Back to now</button>
-        <button class="add-tz-btn" title="Add timezones">+</button>
+        <time class="local-time" aria-live="polite"></time>
+        <button class="back-to-now hidden" aria-label="Return to current time">Back to now</button>
+        <button class="add-tz-btn" title="Add timezones" aria-label="Add timezones">
+          <span class="add-tz-icon">+</span>
+          <span class="tz-count-badge"></span>
+        </button>
       </div>
     </header>
-    <div class="tz-panel hidden">
+    <div class="tz-panel-backdrop hidden"></div>
+    <div class="tz-panel hidden" role="dialog" aria-label="Timezone picker">
+      <div class="tz-panel-handle" aria-hidden="true"><span></span></div>
       <div class="tz-panel-header">
         <h2>Timezones</h2>
-        <button class="tz-panel-close">&times;</button>
+        <button class="tz-panel-close" aria-label="Close timezone panel">&times;</button>
       </div>
-      <input type="text" class="tz-search" placeholder="Search cities or timezones..." autocomplete="off" />
+      <div class="tz-search-wrapper">
+        <input type="text" class="tz-search" placeholder="Search cities or timezones..." autocomplete="off" aria-label="Search timezones" />
+        <button class="tz-search-clear hidden" aria-label="Clear search">&times;</button>
+      </div>
       <div class="tz-panel-actions">
         <button class="tz-select-all">Select all</button>
       </div>

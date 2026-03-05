@@ -9,6 +9,8 @@ export function initDrag() {
 
   container.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return; // left button only
+    // Don't start drag when clicking on the label column
+    if (e.target.closest('.tz-label')) return;
     state.isDragging = true;
     state.dragStartX = e.clientX;
     state.dragStartDt = state.selectedDt;

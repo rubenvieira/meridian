@@ -19,12 +19,26 @@ export function buildGrid() {
   cellWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--cell-width'));
 
   container.innerHTML = '';
+  container.setAttribute('role', 'grid');
   rowElements = [];
 
   const timezones = getSelectedTimezones();
-  for (const tz of timezones) {
+  const localZone = DateTime.now().zoneName;
+
+  // Update timezone count badge
+  const badge = document.querySelector('.tz-count-badge');
+  if (badge) badge.textContent = timezones.length;
+
+  timezones.forEach((tz, index) => {
     const row = document.createElement('div');
     row.className = 'tz-row';
+    row.setAttribute('role', 'row');
+    row.style.animationDelay = `${index * 30}ms`;
+
+    // Highlight user's local timezone
+    if (tz.id === localZone) {
+      row.classList.add('local-tz');
+    }
 
     const label = document.createElement('div');
     label.className = 'tz-label';
@@ -39,7 +53,7 @@ export function buildGrid() {
         <span class="tz-name">${tz.label}</span>
         <span class="tz-meta">${abbr} · UTC${offset}</span>
       </div>
-      <span class="tz-current-time"></span>
+      <time class="tz-current-time"></time>
     `;
 
     const strip = document.createElement('div');
@@ -49,6 +63,7 @@ export function buildGrid() {
     for (let i = 0; i < TOTAL_HOURS; i++) {
       const cell = document.createElement('div');
       cell.className = 'hour-cell';
+      cell.setAttribute('role', 'gridcell');
       cell.innerHTML = '<span class="hour-text"></span>';
       strip.appendChild(cell);
       cells.push(cell);
@@ -66,7 +81,7 @@ export function buildGrid() {
       timeEl: label.querySelector('.tz-current-time'),
       metaEl: label.querySelector('.tz-meta'),
     });
-  }
+  });
 
   computeGridWidth();
   updateGrid();
@@ -85,7 +100,18 @@ export function updateGrid() {
   // Update header local time
   const localTimeEl = document.querySelector('.local-time');
   if (localTimeEl) {
-    localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
+    const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
+    if (diffMinutes < 2) {
+      localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
+    } else {
+      localTimeEl.textContent = `Viewing: ${state.selectedDt.toFormat('cccc, LLL d · h:mm a')}`;
+    }
+  }
+
+  // Update NOW label with actual time
+  const nowLabel = document.querySelector('.now-label');
+  if (nowLabel) {
+    nowLabel.textContent = now.toFormat('h:mm a');
   }
 
   // Show/hide back-to-now button
@@ -124,6 +150,8 @@ export function updateGrid() {
       // Time class (per-hour color)
       const timeClass = getHourClass(hour);
       cell.className = 'hour-cell ' + timeClass;
+      cell.setAttribute('role', 'gridcell');
+      cell.setAttribute('aria-label', cellDt.toFormat('cccc, LLLL d, h a ZZZZ'));
       cell.dataset.hour = hour;
 
       // Selected highlight
@@ -144,11 +172,16 @@ export function updateGrid() {
     // Update current time display in label
     const displayDt = selectedInZone;
     timeEl.textContent = displayDt.toFormat('h:mm a');
+    timeEl.setAttribute('datetime', displayDt.toISO());
 
-    // Update meta (abbreviation + offset)
+    // Update meta (abbreviation + offset + relative diff)
     const abbr = selectedInZone.toFormat('ZZZZ');
     const offset = selectedInZone.toFormat('ZZ');
-    metaEl.textContent = `${abbr} · UTC${offset}`;
+    const localOffset = state.selectedDt.offset; // in minutes
+    const tzOffset = selectedInZone.offset; // in minutes
+    const diffHours = (tzOffset - localOffset) / 60;
+    const diffStr = diffHours === 0 ? '' : diffHours > 0 ? ` · +${diffHours}h` : ` · ${diffHours}h`;
+    metaEl.textContent = `${abbr} · UTC${offset}${diffStr}`;
   }
 }
 

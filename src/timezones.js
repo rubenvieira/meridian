@@ -100,7 +100,9 @@ export function getSelectedTimezoneIds() {
 }
 
 export function saveSelectedTimezoneIds(ids) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(ids));
+  } catch (e) { /* private browsing or quota exceeded */ }
 }
 
 export function getSelectedTimezones() {
