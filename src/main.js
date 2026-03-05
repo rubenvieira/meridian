@@ -3,16 +3,53 @@ import { state, getStateFromURL, updateURL } from './state.js';
 import { buildGrid, updateGrid, onResize } from './render.js';
 import { initDrag } from './drag.js';
 import { initPicker } from './picker.js';
+import { saveSelectedTimezoneIds } from './timezones.js';
 import './style.css';
+
+// Restore state from URL hash if present
+const urlState = getStateFromURL();
+if (urlState.dt) {
+  state.selectedDt = urlState.dt;
+}
+if (urlState.tzIds) {
+  state.sharedTzIds = urlState.tzIds;
+}
 
 // Build initial grid
 buildGrid();
 
-// Restore time from URL hash if present
-const urlDt = getStateFromURL();
-if (urlDt) {
-  state.selectedDt = urlDt;
-  updateGrid();
+// Show shared timezone banner if viewing shared link
+if (state.sharedTzIds) {
+  showSharedBanner();
+}
+
+function showSharedBanner() {
+  const existing = document.querySelector('.shared-banner');
+  if (existing) existing.remove();
+
+  const banner = document.createElement('div');
+  banner.className = 'shared-banner';
+  banner.innerHTML = `
+    <span>Viewing shared timezones</span>
+    <button class="shared-banner-save">Save these</button>
+    <button class="shared-banner-dismiss">Use mine</button>
+  `;
+  document.querySelector('#app').insertBefore(banner, document.querySelector('.grid-container'));
+
+  banner.querySelector('.shared-banner-save').addEventListener('click', () => {
+    saveSelectedTimezoneIds(state.sharedTzIds);
+    state.sharedTzIds = null;
+    banner.remove();
+    buildGrid();
+    updateURL();
+  });
+
+  banner.querySelector('.shared-banner-dismiss').addEventListener('click', () => {
+    state.sharedTzIds = null;
+    banner.remove();
+    buildGrid();
+    updateURL();
+  });
 }
 
 // Set up drag interaction
@@ -73,10 +110,52 @@ document.querySelector('.grid-container').addEventListener('dblclick', () => {
   updateURL();
 });
 
+// Keyboard shortcut help modal
+let helpModal = null;
+
+function toggleHelp() {
+  if (helpModal) {
+    helpModal.remove();
+    helpModal = null;
+    return;
+  }
+  helpModal = document.createElement('div');
+  helpModal.className = 'shortcuts-modal-backdrop';
+  helpModal.innerHTML = `
+    <div class="shortcuts-modal" role="dialog" aria-label="Keyboard shortcuts">
+      <h3>Keyboard Shortcuts</h3>
+      <div class="shortcut-row"><kbd>&larr;</kbd> <kbd>&rarr;</kbd><span>Shift hours</span></div>
+      <div class="shortcut-row"><span class="shortcut-label">Double-click</span><span>Reset to now</span></div>
+      <div class="shortcut-row"><kbd>Esc</kbd><span>Close panel</span></div>
+      <div class="shortcut-row"><kbd>&uarr;</kbd> <kbd>&darr;</kbd><span>Navigate timezone list</span></div>
+      <div class="shortcut-row"><kbd>Enter</kbd> / <kbd>Space</kbd><span>Toggle timezone</span></div>
+      <div class="shortcut-row"><kbd>?</kbd><span>Toggle this help</span></div>
+    </div>
+  `;
+  document.body.appendChild(helpModal);
+  helpModal.addEventListener('click', (e) => {
+    if (e.target === helpModal) toggleHelp();
+  });
+}
+
 // Keyboard navigation: Left/Right arrow keys to shift hours
 document.addEventListener('keydown', (e) => {
-  if (state.isPanelOpen) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+  // Help modal
+  if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+    e.preventDefault();
+    toggleHelp();
+    return;
+  }
+
+  // Close help modal with Escape
+  if (e.key === 'Escape' && helpModal) {
+    toggleHelp();
+    return;
+  }
+
+  if (state.isPanelOpen) return;
   if (e.key === 'ArrowLeft') {
     e.preventDefault();
     state.selectedDt = state.selectedDt.minus({ hours: 1 });
@@ -120,11 +199,20 @@ window.addEventListener('resize', () => {
 
 // Handle URL hash changes (browser back/forward, manual edits)
 window.addEventListener('hashchange', () => {
-  const dt = getStateFromURL();
-  if (dt) {
-    state.selectedDt = dt;
+  const urlState = getStateFromURL();
+  state.selectedDt = urlState.dt || DateTime.now();
+
+  const hadShared = state.sharedTzIds !== null;
+  state.sharedTzIds = urlState.tzIds;
+
+  if (state.sharedTzIds) {
+    buildGrid();
+    showSharedBanner();
+  } else if (hadShared) {
+    const banner = document.querySelector('.shared-banner');
+    if (banner) banner.remove();
+    buildGrid();
   } else {
-    state.selectedDt = DateTime.now();
+    updateGrid();
   }
-  updateGrid();
 });
