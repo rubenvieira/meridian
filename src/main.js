@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { state, getStateFromURL, updateURL } from './state.js';
+import { state, getStateFromURL, updateURL, saveDarkenWeekends } from './state.js';
 import { buildGrid, updateGrid, onResize } from './render.js';
 import { initDrag } from './drag.js';
 import { initPicker } from './picker.js';
@@ -13,6 +13,16 @@ if (urlState.dt) {
 }
 if (urlState.tzIds) {
   state.sharedTzIds = urlState.tzIds;
+}
+
+// Set up weekend toggle
+const weekendToggle = document.querySelector('#toggle-weekends');
+if (weekendToggle) {
+  weekendToggle.checked = state.darkenWeekends;
+  weekendToggle.addEventListener('change', (e) => {
+    saveDarkenWeekends(e.target.checked);
+    updateGrid();
+  });
 }
 
 // Build initial grid
@@ -57,19 +67,19 @@ initDrag();
 
 // Show drag affordance hint on first visit per session
 let dragHintShown = false;
-try { dragHintShown = sessionStorage.getItem('meridian-drag-hint-shown'); } catch (e) {}
+try { dragHintShown = sessionStorage.getItem('meridian-drag-hint-shown'); } catch (e) { }
 if (!dragHintShown) {
   const gridContainer = document.querySelector('.grid-container');
   gridContainer.classList.add('show-drag-hint');
   gridContainer.addEventListener('animationend', () => {
     gridContainer.classList.remove('show-drag-hint');
   }, { once: true });
-  try { sessionStorage.setItem('meridian-drag-hint-shown', '1'); } catch (e) {}
+  try { sessionStorage.setItem('meridian-drag-hint-shown', '1'); } catch (e) { }
 }
 
 // Show keyboard shortcuts hint on first visit
 let shortcutsShown = false;
-try { shortcutsShown = sessionStorage.getItem('meridian-shortcuts-shown'); } catch (e) {}
+try { shortcutsShown = sessionStorage.getItem('meridian-shortcuts-shown'); } catch (e) { }
 if (!shortcutsShown) {
   const hint = document.createElement('div');
   hint.className = 'shortcuts-hint';
@@ -90,7 +100,7 @@ if (!shortcutsShown) {
   document.addEventListener('keydown', dismiss, { once: true });
   hint.addEventListener('click', dismiss);
 
-  try { sessionStorage.setItem('meridian-shortcuts-shown', '1'); } catch (e) {}
+  try { sessionStorage.setItem('meridian-shortcuts-shown', '1'); } catch (e) { }
 }
 
 // Set up timezone picker

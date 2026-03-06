@@ -4,6 +4,7 @@ import { getCellWidth, updateGrid } from './render.js';
 
 const CLICK_THRESHOLD = 5; // px
 let rafId = null;
+let wheelTimeoutId = null;
 
 export function initDrag() {
   const container = document.querySelector('.grid-container');
@@ -61,6 +62,44 @@ export function initDrag() {
     state.isDragging = false;
     container.classList.remove('dragging');
   });
+
+  container.addEventListener('wheel', (e) => {
+    // Only intercept horizontal wheel scrolls or vertical scrolls on the container itself 
+    // to prevent unwanted page navigating/jumping. Trackpads often send deltaX, physical mice send deltaY.
+    if (state.isPanelOpen) return;
+
+    e.preventDefault();
+
+    // Use absolute highest delta to support both horizontal trackpad swipes and vertical mouse wheel turns
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+
+    // Smooth pixel shift
+    const cellWidth = getCellWidth();
+    const deltaHours = delta / cellWidth;
+
+    state.selectedDt = state.selectedDt.plus({ hours: deltaHours });
+
+    if (rafId === null) {
+      rafId = requestAnimationFrame(() => {
+        updateGrid();
+        rafId = null;
+      });
+    }
+
+    // Debounce the URL update so we don't spam history during a smooth scroll
+    clearTimeout(wheelTimeoutId);
+    wheelTimeoutId = setTimeout(() => {
+      // Snap to nearest hour after scrolling rests
+      const rounded = state.selectedDt.startOf('hour');
+      const nextHour = rounded.plus({ hours: 1 });
+      const diffToRounded = Math.abs(state.selectedDt.diff(rounded, 'minutes').minutes);
+      const diffToNext = Math.abs(state.selectedDt.diff(nextHour, 'minutes').minutes);
+      state.selectedDt = diffToRounded <= diffToNext ? rounded : nextHour;
+
+      updateGrid();
+      updateURL(false);
+    }, 150);
+  }, { passive: false });
 }
 
 function handleClick(e) {

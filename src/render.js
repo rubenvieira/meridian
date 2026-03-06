@@ -189,6 +189,10 @@ export function updateGrid() {
           cell.classList.add('working-hour');
         }
 
+        if (state.darkenWeekends && (cellDt.weekday === 6 || cellDt.weekday === 7)) {
+          cell.classList.add('weekend-dark');
+        }
+
         if (i === selectedHourIndex) {
           cell.classList.add('selected');
         }

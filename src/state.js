@@ -7,7 +7,27 @@ export const state = {
   dragStartDt: null,
   isPanelOpen: false,
   sharedTzIds: null, // non-null when viewing a shared link with timezone selections
+  darkenWeekends: getSavedDarkenWeekends(),
 };
+
+function getSavedDarkenWeekends() {
+  try {
+    const saved = localStorage.getItem('meridian-darken-weekends');
+    return saved === '1';
+  } catch (e) {
+    return false;
+  }
+}
+
+export function saveDarkenWeekends(value) {
+  state.darkenWeekends = value;
+  try {
+    localStorage.setItem('meridian-darken-weekends', value ? '1' : '0');
+  } catch (e) {
+    // Ignore storage errors
+  }
+}
+
 
 /**
  * Parse state from the URL hash.
