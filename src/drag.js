@@ -72,8 +72,7 @@ function handleClick(e) {
   const cellWidth = getCellWidth();
   const offsetHours = (clickXInGrid - centerX) / cellWidth;
 
-  const now = DateTime.now();
-  state.selectedDt = now.plus({ hours: offsetHours }).startOf('hour');
+  state.selectedDt = state.selectedDt.plus({ hours: offsetHours }).startOf('hour');
   updateGrid();
   updateURL(false);
 }

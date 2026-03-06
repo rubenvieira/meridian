@@ -6,8 +6,8 @@
 
 :root {
   --cell-width: 60px;
-  --label-width: 220px;
-  --row-height: 48px;
+  --label-width: 260px;
+  --row-height: 52px;
   --total-hours: 49;
 
   /* Background */
@@ -522,30 +522,38 @@ html, body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  justify-content: center;
+  gap: 2px;
+}
+
+.tz-info-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
 }
 
 .tz-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: -0.01em;
+  padding-right: 8px;
 }
 
 .tz-meta {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--text-muted);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
 }
 
 .tz-current-time {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
-  margin-left: auto;
   flex-shrink: 0;
   font-variant-numeric: tabular-nums;
   color: var(--text-primary);

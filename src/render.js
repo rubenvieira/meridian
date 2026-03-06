@@ -10,6 +10,8 @@ let cellWidth = 60;
 let gridAreaWidth = 0;
 let rowElements = [];
 let reorderInitialized = false;
+let lastRenderedAnchorMs = null;
+let previousSelectedHourIndex = -1;
 
 // Cached DOM references (populated in buildGrid)
 let localTimeEl = null;
@@ -61,10 +63,12 @@ export function buildGrid() {
       <span class="tz-drag-handle" aria-label="Drag to reorder">&#x2807;</span>
       <span class="tz-flag">${tz.flag}</span>
       <div class="tz-info">
-        <span class="tz-name">${tz.label}${dstBadge}</span>
+        <div class="tz-info-top">
+          <span class="tz-name">${tz.label}${dstBadge}</span>
+          <time class="tz-current-time"></time>
+        </div>
         <span class="tz-meta">${abbr} · UTC${offset}</span>
       </div>
-      <time class="tz-current-time"></time>
     `;
 
     const strip = document.createElement('div');
@@ -99,7 +103,7 @@ export function buildGrid() {
       label,
       strip,
       cells,
-      timeEl,
+      timeEl: label.querySelector('.tz-current-time'),
       metaEl: label.querySelector('.tz-meta'),
     });
   });
@@ -149,82 +153,87 @@ export function updateGrid() {
     backBtnEl.classList.toggle('hidden', isNearNow);
   }
 
-  // Compute translate offset
-  // The center cell (index 24) should represent `now`.
-  // When selectedDt == now, translateX centers cell 24 in the grid area.
-  // When selectedDt differs, we shift accordingly.
-  const diffFromNowHours = state.selectedDt.diff(now, 'hours').hours;
+  const anchorDt = state.selectedDt.startOf('hour');
+  const anchorChanged = anchorDt.toMillis() !== lastRenderedAnchorMs;
+  if (anchorChanged) {
+    lastRenderedAnchorMs = anchorDt.toMillis();
+  }
+
+  const diffHours = state.selectedDt.diff(anchorDt, 'hours').hours;
   const centerOffsetPx = gridAreaWidth / 2;
-  const translateX = centerOffsetPx - (CENTER_INDEX * cellWidth) - (cellWidth / 2) - (diffFromNowHours * cellWidth);
+  const translateX = centerOffsetPx - (CENTER_INDEX * cellWidth) - (cellWidth / 2) - (diffHours * cellWidth);
+
+  const selectedHourIndex = Math.round(CENTER_INDEX + diffHours);
+  const selectionChanged = selectedHourIndex !== previousSelectedHourIndex;
+  previousSelectedHourIndex = selectedHourIndex;
 
   for (const row of rowElements) {
     const { tz, strip, cells, timeEl, metaEl } = row;
 
-    // Compute the base DateTime for cell 0 in this timezone
-    const nowInZone = now.setZone(tz.id);
-    const baseDt = nowInZone.startOf('hour').minus({ hours: CENTER_INDEX });
-
     strip.style.transform = `translateX(${translateX}px)`;
 
-    // Determine which cell index is "selected" (closest to selectedDt)
     const selectedInZone = state.selectedDt.setZone(tz.id);
-    const selectedHourIndex = Math.round(selectedInZone.diff(baseDt, 'hours').hours);
 
-    for (let i = 0; i < TOTAL_HOURS; i++) {
-      const cellDt = baseDt.plus({ hours: i });
-      const hour = cellDt.hour;
-      const cell = cells[i];
+    if (anchorChanged) {
+      const anchorInZone = anchorDt.setZone(tz.id);
+      const baseDt = anchorInZone.minus({ hours: CENTER_INDEX });
 
-      // Time class (per-hour color)
-      const timeClass = getHourClass(hour);
-      cell.className = 'hour-cell ' + timeClass;
-      cell.setAttribute('aria-label', cellDt.toFormat('cccc, LLLL d, h a ZZZZ'));
-      cell.dataset.hour = hour;
+      for (let i = 0; i < TOTAL_HOURS; i++) {
+        const cellDt = baseDt.plus({ hours: i });
+        const hour = cellDt.hour;
+        const cell = cells[i];
 
-      // Working hours indicator (9am–5pm)
-      if (hour >= 9 && hour < 17) {
-        cell.classList.add('working-hour');
+        cell.className = 'hour-cell ' + getHourClass(hour);
+
+        if (hour >= 9 && hour < 17) {
+          cell.classList.add('working-hour');
+        }
+
+        if (i === selectedHourIndex) {
+          cell.classList.add('selected');
+        }
+
+        if (hour === 0) {
+          cell.classList.add('day-boundary');
+          cell.querySelector('.hour-text').innerHTML =
+            `<span class="day-label">${cellDt.toFormat('ccc d')}</span>${formatHour(hour)}`;
+        } else {
+          cell.querySelector('.hour-text').textContent = formatHour(hour);
+        }
+
+        cell.setAttribute('aria-label', cellDt.toFormat('cccc, LLLL d, h a ZZZZ'));
+        cell.dataset.hour = hour;
       }
 
-      // Selected highlight
-      if (i === selectedHourIndex) {
-        cell.classList.add('selected');
-      }
+      const abbr = selectedInZone.toFormat('ZZZZ');
+      const offset = selectedInZone.toFormat('ZZ');
+      const localOffset = state.selectedDt.offset;
+      const tzOffset = selectedInZone.offset;
+      const diffHrs = (tzOffset - localOffset) / 60;
+      const diffStr = diffHrs === 0 ? '' : diffHrs > 0 ? ` · +${diffHrs}h` : ` · ${diffHrs}h`;
+      metaEl.textContent = `${abbr} · UTC${offset}${diffStr}`;
 
-      // Day boundary
-      if (hour === 0) {
-        cell.classList.add('day-boundary');
-        cell.querySelector('.hour-text').innerHTML =
-          `<span class="day-label">${cellDt.toFormat('ccc d')}</span>${formatHour(hour)}`;
-      } else {
-        cell.querySelector('.hour-text').textContent = formatHour(hour);
+      const nameEl = row.label.querySelector('.tz-name');
+      if (nameEl) {
+        const existingBadge = nameEl.querySelector('.dst-badge');
+        if (selectedInZone.isInDST && !existingBadge) {
+          nameEl.insertAdjacentHTML('beforeend', '<span class="dst-badge">DST</span>');
+        } else if (!selectedInZone.isInDST && existingBadge) {
+          existingBadge.remove();
+        }
+      }
+    } else if (selectionChanged) {
+      for (let i = 0; i < TOTAL_HOURS; i++) {
+        if (i === selectedHourIndex) {
+          cells[i].classList.add('selected');
+        } else {
+          cells[i].classList.remove('selected');
+        }
       }
     }
 
-    // Update current time display in label
-    const displayDt = selectedInZone;
-    timeEl.textContent = displayDt.toFormat('h:mm a');
-    timeEl.setAttribute('datetime', displayDt.toISO());
-
-    // Update meta (abbreviation + offset + relative diff)
-    const abbr = selectedInZone.toFormat('ZZZZ');
-    const offset = selectedInZone.toFormat('ZZ');
-    const localOffset = state.selectedDt.offset; // in minutes
-    const tzOffset = selectedInZone.offset; // in minutes
-    const diffHours = (tzOffset - localOffset) / 60;
-    const diffStr = diffHours === 0 ? '' : diffHours > 0 ? ` · +${diffHours}h` : ` · ${diffHours}h`;
-    metaEl.textContent = `${abbr} · UTC${offset}${diffStr}`;
-
-    // Update DST badge
-    const nameEl = row.label.querySelector('.tz-name');
-    if (nameEl) {
-      const existingBadge = nameEl.querySelector('.dst-badge');
-      if (selectedInZone.isInDST && !existingBadge) {
-        nameEl.insertAdjacentHTML('beforeend', '<span class="dst-badge">DST</span>');
-      } else if (!selectedInZone.isInDST && existingBadge) {
-        existingBadge.remove();
-      }
-    }
+    timeEl.textContent = selectedInZone.toFormat('h:mm a');
+    timeEl.setAttribute('datetime', selectedInZone.toISO());
   }
 }
 
