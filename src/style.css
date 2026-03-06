@@ -1378,14 +1378,31 @@ body {
 
   .header {
     padding: 10px 12px;
-    gap: 8px;
+    gap: 6px;
   }
 
   .header-right {
-    gap: 8px;
+    gap: 6px;
   }
 
+  /* Hide date/time text in header — each row already shows local time */
   .local-time {
+    display: none;
+  }
+
+  /* Condense weekend toggle to checkbox only */
+  .weekend-toggle span {
+    display: none;
+  }
+
+  .weekend-toggle {
+    padding: 8px 6px;
+    margin-right: 0;
+  }
+
+  /* Ensure back-to-now meets 44px touch target */
+  .back-to-now {
+    padding: 10px 12px;
     font-size: 12px;
   }
 
@@ -1399,6 +1416,8 @@ body {
     bottom: 0;
     padding-bottom: env(safe-area-inset-bottom);
     animation: panel-in-mobile 0.25s ease;
+    /* Allow transform for swipe-to-dismiss gesture */
+    will-change: transform;
   }
 
   .tz-panel.closing {
@@ -1484,6 +1503,55 @@ body {
 
   .tz-panel {
     max-height: 90vh;
+  }
+}
+
+/* ========== TOUCH DEVICE OPTIMIZATIONS ========== */
+
+/* Reduce tap delay on all interactive elements */
+button,
+label,
+.tz-item,
+.add-tz-btn,
+.back-to-now,
+.tz-current-time,
+.tz-panel-close,
+.tz-select-all,
+.tz-search-clear {
+  touch-action: manipulation;
+}
+
+@media (hover: none) {
+  /* Always show drag handles — hover doesn't work on touch */
+  .tz-drag-handle {
+    opacity: 0.45;
+  }
+
+  /* Prevent hover states from sticking after touch */
+  .tz-row:hover {
+    filter: none;
+  }
+
+  .hour-cell:hover {
+    filter: none;
+    z-index: auto;
+  }
+
+  .back-to-now:hover {
+    transform: none;
+    box-shadow: 0 0 16px rgba(244, 63, 94, 0.3);
+  }
+
+  .add-tz-btn:hover {
+    transform: none;
+  }
+
+  .tz-item:hover {
+    background: transparent;
+  }
+
+  .tz-item.active:hover {
+    background: rgba(129, 140, 248, 0.1);
   }
 }
 

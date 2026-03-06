@@ -3,8 +3,10 @@ import { state, updateURL } from './state.js';
 import { getCellWidth, updateGrid } from './render.js';
 
 const CLICK_THRESHOLD = 5; // px
+const DOUBLE_TAP_MS = 350; // ms window for double-tap/double-click
 let rafId = null;
 let wheelTimeoutId = null;
+let lastClickTime = 0;
 
 export function initDrag() {
   const container = document.querySelector('.grid-container');
@@ -44,8 +46,18 @@ export function initDrag() {
     container.classList.remove('dragging');
 
     if (deltaX < CLICK_THRESHOLD) {
-      // Treat as click — snap to the clicked hour
-      handleClick(e);
+      const tapTime = Date.now();
+      if (tapTime - lastClickTime < DOUBLE_TAP_MS) {
+        // Double-tap / double-click: reset to now
+        state.selectedDt = DateTime.now();
+        updateGrid();
+        updateURL();
+        lastClickTime = 0; // prevent triple-tap triggering again
+      } else {
+        // Treat as single click — snap to the clicked hour
+        handleClick(e);
+        lastClickTime = tapTime;
+      }
     } else {
       // Snap to nearest hour
       const rounded = state.selectedDt.startOf('hour');
