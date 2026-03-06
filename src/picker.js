@@ -107,6 +107,47 @@ export function initPicker(onRebuild) {
     if (rebuildCallback) rebuildCallback();
   });
 
+  // Swipe-to-dismiss for mobile bottom sheet
+  // Only active on small screens where the panel is a bottom sheet
+  let swipeStartY = 0;
+  let swipeCurrentY = 0;
+  let isSwiping = false;
+
+  function onSwipeStart(e) {
+    if (window.innerWidth > 480) return;
+    swipeStartY = e.touches[0].clientY;
+    swipeCurrentY = swipeStartY;
+    isSwiping = true;
+    panel.style.transition = 'none';
+    document.addEventListener('touchmove', onSwipeMove, { passive: true });
+    document.addEventListener('touchend', onSwipeEnd, { once: true });
+  }
+
+  function onSwipeMove(e) {
+    if (!isSwiping) return;
+    swipeCurrentY = e.touches[0].clientY;
+    const deltaY = swipeCurrentY - swipeStartY;
+    if (deltaY > 0) {
+      panel.style.transform = `translateY(${deltaY}px)`;
+    }
+  }
+
+  function onSwipeEnd() {
+    if (!isSwiping) return;
+    isSwiping = false;
+    document.removeEventListener('touchmove', onSwipeMove);
+    const deltaY = swipeCurrentY - swipeStartY;
+    panel.style.transition = '';
+    panel.style.transform = '';
+    if (deltaY > 80) {
+      closePanel();
+    }
+  }
+
+  // Attach swipe listeners to the handle and panel header (non-scrollable areas)
+  panel.querySelector('.tz-panel-handle').addEventListener('touchstart', onSwipeStart, { passive: true });
+  panel.querySelector('.tz-panel-header').addEventListener('touchstart', onSwipeStart, { passive: true });
+
   // Delegate clicks on timezone items
   const list = document.querySelector('.tz-list');
   list.addEventListener('click', (e) => {

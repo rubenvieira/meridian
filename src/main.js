@@ -77,13 +77,18 @@ if (!dragHintShown) {
   try { sessionStorage.setItem('meridian-drag-hint-shown', '1'); } catch (e) { }
 }
 
-// Show keyboard shortcuts hint on first visit
+// Show hint on first visit — keyboard shortcuts on desktop, swipe hint on touch devices
+const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
 let shortcutsShown = false;
 try { shortcutsShown = sessionStorage.getItem('meridian-shortcuts-shown'); } catch (e) { }
 if (!shortcutsShown) {
   const hint = document.createElement('div');
   hint.className = 'shortcuts-hint';
-  hint.innerHTML = '<kbd>&larr;</kbd><kbd>&rarr;</kbd> shift hours &middot; double-click to reset &middot; <kbd>Esc</kbd> close panel';
+  if (isTouchDevice) {
+    hint.textContent = 'Swipe to shift hours · Tap to select · Double-tap to reset';
+  } else {
+    hint.innerHTML = '<kbd>&larr;</kbd><kbd>&rarr;</kbd> shift hours &middot; double-click to reset &middot; <kbd>Esc</kbd> close panel';
+  }
   hint.setAttribute('role', 'status');
   document.querySelector('#app').appendChild(hint);
 
