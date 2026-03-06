@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { getSelectedTimezones } from './timezones.js';
+import { getSelectedTimezones, getTimezonesByIds, getSelectedTimezoneIds, saveSelectedTimezoneIds } from './timezones.js';
 import { state } from './state.js';
 import { getHourClass } from './colors.js';
 
@@ -9,6 +9,12 @@ const CENTER_INDEX = 24;
 let cellWidth = 60;
 let gridAreaWidth = 0;
 let rowElements = [];
+let reorderInitialized = false;
+
+// Cached DOM references (populated in buildGrid)
+let localTimeEl = null;
+let nowLabelEl = null;
+let backBtnEl = null;
 
 export function getCellWidth() {
   return cellWidth;
@@ -22,7 +28,9 @@ export function buildGrid() {
   container.setAttribute('role', 'grid');
   rowElements = [];
 
-  const timezones = getSelectedTimezones();
+  const timezones = state.sharedTzIds
+    ? getTimezonesByIds(state.sharedTzIds)
+    : getSelectedTimezones();
   const localZone = DateTime.now().zoneName;
 
   // Update timezone count badge
@@ -47,10 +55,13 @@ export function buildGrid() {
     const abbr = zoneDt.toFormat('ZZZZ');
     const offset = zoneDt.toFormat('ZZ');
 
+    const dstBadge = zoneDt.isInDST ? '<span class="dst-badge">DST</span>' : '';
+
     label.innerHTML = `
+      <span class="tz-drag-handle" aria-label="Drag to reorder">&#x2807;</span>
       <span class="tz-flag">${tz.flag}</span>
       <div class="tz-info">
-        <span class="tz-name">${tz.label}</span>
+        <span class="tz-name">${tz.label}${dstBadge}</span>
         <span class="tz-meta">${abbr} · UTC${offset}</span>
       </div>
       <time class="tz-current-time"></time>
@@ -73,15 +84,35 @@ export function buildGrid() {
     row.appendChild(strip);
     container.appendChild(row);
 
+    // Copy time on click
+    const timeEl = label.querySelector('.tz-current-time');
+    timeEl.addEventListener('click', () => {
+      const zoneDtNow = state.selectedDt.setZone(tz.id);
+      const text = `${tz.label}: ${zoneDtNow.toFormat('cccc, LLL d, h:mm a ZZZZ')}`;
+      navigator.clipboard.writeText(text).then(() => {
+        showCopyToast(timeEl);
+      });
+    });
+
     rowElements.push({
       tz,
       label,
       strip,
       cells,
-      timeEl: label.querySelector('.tz-current-time'),
+      timeEl,
       metaEl: label.querySelector('.tz-meta'),
     });
   });
+
+  // Cache static DOM references
+  localTimeEl = document.querySelector('.local-time');
+  nowLabelEl = document.querySelector('.now-label');
+  backBtnEl = document.querySelector('.back-to-now');
+
+  if (!reorderInitialized) {
+    initRowReorder();
+    reorderInitialized = true;
+  }
 
   computeGridWidth();
   updateGrid();
@@ -96,12 +127,12 @@ function computeGridWidth() {
 
 export function updateGrid() {
   const now = DateTime.now();
+  const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
+  const isNearNow = diffMinutes < 2;
 
   // Update header local time
-  const localTimeEl = document.querySelector('.local-time');
   if (localTimeEl) {
-    const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
-    if (diffMinutes < 2) {
+    if (isNearNow) {
       localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
     } else {
       localTimeEl.textContent = `Viewing: ${state.selectedDt.toFormat('cccc, LLL d · h:mm a')}`;
@@ -109,16 +140,13 @@ export function updateGrid() {
   }
 
   // Update NOW label with actual time
-  const nowLabel = document.querySelector('.now-label');
-  if (nowLabel) {
-    nowLabel.textContent = now.toFormat('h:mm a');
+  if (nowLabelEl) {
+    nowLabelEl.textContent = now.toFormat('h:mm a');
   }
 
   // Show/hide back-to-now button
-  const backBtn = document.querySelector('.back-to-now');
-  if (backBtn) {
-    const diffMinutes = Math.abs(state.selectedDt.diff(now, 'minutes').minutes);
-    backBtn.classList.toggle('hidden', diffMinutes < 2);
+  if (backBtnEl) {
+    backBtnEl.classList.toggle('hidden', isNearNow);
   }
 
   // Compute translate offset
@@ -150,9 +178,13 @@ export function updateGrid() {
       // Time class (per-hour color)
       const timeClass = getHourClass(hour);
       cell.className = 'hour-cell ' + timeClass;
-      cell.setAttribute('role', 'gridcell');
       cell.setAttribute('aria-label', cellDt.toFormat('cccc, LLLL d, h a ZZZZ'));
       cell.dataset.hour = hour;
+
+      // Working hours indicator (9am–5pm)
+      if (hour >= 9 && hour < 17) {
+        cell.classList.add('working-hour');
+      }
 
       // Selected highlight
       if (i === selectedHourIndex) {
@@ -182,6 +214,17 @@ export function updateGrid() {
     const diffHours = (tzOffset - localOffset) / 60;
     const diffStr = diffHours === 0 ? '' : diffHours > 0 ? ` · +${diffHours}h` : ` · ${diffHours}h`;
     metaEl.textContent = `${abbr} · UTC${offset}${diffStr}`;
+
+    // Update DST badge
+    const nameEl = row.label.querySelector('.tz-name');
+    if (nameEl) {
+      const existingBadge = nameEl.querySelector('.dst-badge');
+      if (selectedInZone.isInDST && !existingBadge) {
+        nameEl.insertAdjacentHTML('beforeend', '<span class="dst-badge">DST</span>');
+      } else if (!selectedInZone.isInDST && existingBadge) {
+        existingBadge.remove();
+      }
+    }
   }
 }
 
@@ -190,6 +233,127 @@ function formatHour(hour) {
   if (hour < 12) return hour + 'a';
   if (hour === 12) return '12p';
   return (hour - 12) + 'p';
+}
+
+// Row reorder via drag handle
+function initRowReorder() {
+  const container = document.querySelector('.grid-rows');
+  let dragRow = null;
+  let dragIndex = -1;
+  let startY = 0;
+
+  container.addEventListener('pointerdown', (e) => {
+    const handle = e.target.closest('.tz-drag-handle');
+    if (!handle) return;
+
+    const row = handle.closest('.tz-row');
+    if (!row) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    dragIndex = [...container.children].indexOf(row);
+    dragRow = row;
+    startY = e.clientY;
+
+    row.classList.add('row-dragging');
+    row.setPointerCapture(e.pointerId);
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (!dragRow) return;
+
+    const deltaY = e.clientY - startY;
+    dragRow.style.transform = `translateY(${deltaY}px)`;
+    dragRow.style.zIndex = '10';
+
+    // Find drop target
+    const rows = [...container.querySelectorAll('.tz-row:not(.row-dragging)')];
+    for (const r of rows) {
+      r.classList.remove('drop-target-above', 'drop-target-below');
+    }
+
+    const rowRect = dragRow.getBoundingClientRect();
+    const centerY = rowRect.top + rowRect.height / 2;
+
+    for (const r of rows) {
+      const rect = r.getBoundingClientRect();
+      const mid = rect.top + rect.height / 2;
+      if (Math.abs(centerY - mid) < rect.height / 2) {
+        if (centerY < mid) {
+          r.classList.add('drop-target-above');
+        } else {
+          r.classList.add('drop-target-below');
+        }
+        break;
+      }
+    }
+  });
+
+  container.addEventListener('pointerup', (e) => {
+    if (!dragRow) return;
+
+    dragRow.style.transform = '';
+    dragRow.style.zIndex = '';
+    dragRow.classList.remove('row-dragging');
+
+    // Find target index
+    const rows = [...container.querySelectorAll('.tz-row')];
+    let targetIndex = dragIndex;
+
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i].classList.contains('drop-target-above')) {
+        targetIndex = i > dragIndex ? i - 1 : i;
+        rows[i].classList.remove('drop-target-above');
+        break;
+      }
+      if (rows[i].classList.contains('drop-target-below')) {
+        targetIndex = i < dragIndex ? i + 1 : i;
+        rows[i].classList.remove('drop-target-below');
+        break;
+      }
+    }
+
+    if (targetIndex !== dragIndex && !state.sharedTzIds) {
+      const ids = getSelectedTimezoneIds();
+      const [moved] = ids.splice(dragIndex, 1);
+      ids.splice(targetIndex, 0, moved);
+      saveSelectedTimezoneIds(ids);
+      buildGrid();
+    }
+
+    dragRow = null;
+    dragIndex = -1;
+  });
+
+  container.addEventListener('pointercancel', () => {
+    if (dragRow) {
+      dragRow.style.transform = '';
+      dragRow.style.zIndex = '';
+      dragRow.classList.remove('row-dragging');
+      dragRow = null;
+      dragIndex = -1;
+      container.querySelectorAll('.drop-target-above, .drop-target-below').forEach(r => {
+        r.classList.remove('drop-target-above', 'drop-target-below');
+      });
+    }
+  });
+}
+
+function showCopyToast(anchorEl) {
+  const existing = document.querySelector('.copy-toast');
+  if (existing) existing.remove();
+
+  const toast = document.createElement('div');
+  toast.className = 'copy-toast';
+  toast.textContent = 'Copied!';
+  document.body.appendChild(toast);
+
+  const rect = anchorEl.getBoundingClientRect();
+  toast.style.top = `${rect.top - 30}px`;
+  toast.style.left = `${rect.left + rect.width / 2}px`;
+
+  setTimeout(() => toast.remove(), 1500);
 }
 
 export function onResize() {

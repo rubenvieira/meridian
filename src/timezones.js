@@ -107,6 +107,10 @@ export function saveSelectedTimezoneIds(ids) {
 
 export function getSelectedTimezones() {
   const ids = getSelectedTimezoneIds();
+  return getTimezonesByIds(ids);
+}
+
+export function getTimezonesByIds(ids) {
   return ids
     .map(id => ALL_TIMEZONES.find(tz => tz.id === id))
     .filter(Boolean);

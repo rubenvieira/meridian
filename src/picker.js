@@ -76,11 +76,13 @@ export function initPicker(onRebuild) {
     }
   });
 
-  // Search filtering with clear button
+  // Search filtering with clear button (debounced)
+  let searchTimer;
   searchInput.addEventListener('input', () => {
     const val = searchInput.value.trim();
     clearBtn.classList.toggle('hidden', val.length === 0);
-    renderTimezoneList(val);
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => renderTimezoneList(val), 100);
   });
 
   clearBtn.addEventListener('click', () => {
