@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -7,13 +8,15 @@
   <meta name="theme-color" content="#0a0e1a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
   <title>Meridian</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/src/style.css">
 </head>
+
 <body>
   <div id="app">
     <div class="noise-overlay" aria-hidden="true"></div>
@@ -43,7 +46,8 @@
         <button class="tz-panel-close" aria-label="Close timezone panel">&times;</button>
       </div>
       <div class="tz-search-wrapper">
-        <input type="text" class="tz-search" placeholder="Search cities or timezones..." autocomplete="off" aria-label="Search timezones" />
+        <input type="text" class="tz-search" placeholder="Search cities or timezones..." autocomplete="off"
+          aria-label="Search timezones" />
         <button class="tz-search-clear hidden" aria-label="Clear search">&times;</button>
       </div>
       <div class="tz-panel-actions">
@@ -53,9 +57,11 @@
     </div>
     <div class="grid-container">
       <div class="now-line"><span class="now-label">NOW</span></div>
+      <div class="selection-highlight" aria-hidden="true"></div>
       <div class="grid-rows"></div>
     </div>
   </div>
   <script type="module" src="/src/main.js"></script>
 </body>
+
 </html>

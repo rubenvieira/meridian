@@ -3,8 +3,8 @@ import { getSelectedTimezones, getTimezonesByIds, getSelectedTimezoneIds, saveSe
 import { state } from './state.js';
 import { getHourClass } from './colors.js';
 
-const TOTAL_HOURS = 49;
-const CENTER_INDEX = 24;
+const TOTAL_HOURS = 73;
+const CENTER_INDEX = 36;
 
 let cellWidth = 60;
 let gridAreaWidth = 0;
@@ -136,16 +136,20 @@ export function updateGrid() {
 
   // Update header local time
   if (localTimeEl) {
-    if (isNearNow) {
-      localTimeEl.textContent = state.selectedDt.toFormat('cccc, LLL d · h:mm a');
-    } else {
-      localTimeEl.textContent = `Viewing: ${state.selectedDt.toFormat('cccc, LLL d · h:mm a')}`;
+    const newText = isNearNow
+      ? state.selectedDt.toFormat('cccc, LLL d · h:mm a')
+      : `Viewing: ${state.selectedDt.toFormat('cccc, LLL d · h:mm a')}`;
+    if (localTimeEl.textContent !== newText) {
+      localTimeEl.textContent = newText;
     }
   }
 
   // Update NOW label with actual time
   if (nowLabelEl) {
-    nowLabelEl.textContent = now.toFormat('h:mm a');
+    const newNowStr = now.toFormat('h:mm a');
+    if (nowLabelEl.textContent !== newNowStr) {
+      nowLabelEl.textContent = newNowStr;
+    }
   }
 
   // Show/hide back-to-now button
@@ -154,18 +158,29 @@ export function updateGrid() {
   }
 
   const anchorDt = state.selectedDt.startOf('hour');
-  const anchorChanged = anchorDt.toMillis() !== lastRenderedAnchorMs;
+
+  // Only fully repaint the grid DOM if we've drifted >= 12 hours from our last painted anchor
+  let anchorChanged = false;
+  let diffFromLastAnchorHours = 0;
+
+  if (lastRenderedAnchorMs === null) {
+    anchorChanged = true;
+  } else {
+    diffFromLastAnchorHours = anchorDt.diff(DateTime.fromMillis(lastRenderedAnchorMs), 'hours').hours;
+    if (Math.abs(diffFromLastAnchorHours) >= 12) {
+      anchorChanged = true;
+    }
+  }
+
   if (anchorChanged) {
     lastRenderedAnchorMs = anchorDt.toMillis();
   }
 
-  const diffHours = state.selectedDt.diff(anchorDt, 'hours').hours;
+  // Actual translation uses total diff off the current physical anchor
+  const activeAnchorDt = DateTime.fromMillis(lastRenderedAnchorMs);
+  const diffHours = state.selectedDt.diff(activeAnchorDt, 'hours').hours;
   const centerOffsetPx = gridAreaWidth / 2;
   const translateX = centerOffsetPx - (CENTER_INDEX * cellWidth) - (cellWidth / 2) - (diffHours * cellWidth);
-
-  const selectedHourIndex = Math.round(CENTER_INDEX + diffHours);
-  const selectionChanged = selectedHourIndex !== previousSelectedHourIndex;
-  previousSelectedHourIndex = selectedHourIndex;
 
   for (const row of rowElements) {
     const { tz, strip, cells, timeEl, metaEl } = row;
@@ -183,26 +198,30 @@ export function updateGrid() {
         const hour = cellDt.hour;
         const cell = cells[i];
 
-        cell.className = 'hour-cell ' + getHourClass(hour);
+        const isWeekendDark = state.darkenWeekends && (cellDt.weekday === 6 || cellDt.weekday === 7);
 
-        if (hour >= 9 && hour < 17) {
+        cell.className = 'hour-cell ' + (isWeekendDark ? 'hour-0' : getHourClass(hour));
+
+        if (hour >= 9 && hour < 17 && !isWeekendDark) {
           cell.classList.add('working-hour');
         }
 
-        if (state.darkenWeekends && (cellDt.weekday === 6 || cellDt.weekday === 7)) {
+        if (isWeekendDark) {
           cell.classList.add('weekend-dark');
-        }
-
-        if (i === selectedHourIndex) {
-          cell.classList.add('selected');
         }
 
         if (hour === 0) {
           cell.classList.add('day-boundary');
-          cell.querySelector('.hour-text').innerHTML =
-            `<span class="day-label">${cellDt.toFormat('ccc d')}</span>${formatHour(hour)}`;
+          const dayHTML = `<span class="day-label">${cellDt.toFormat('ccc d')}</span>${formatHour(hour)}`;
+          if (cell.querySelector('.hour-text').innerHTML !== dayHTML) {
+            cell.querySelector('.hour-text').innerHTML = dayHTML;
+          }
         } else {
-          cell.querySelector('.hour-text').textContent = formatHour(hour);
+          cell.classList.remove('day-boundary');
+          const hrTxt = formatHour(hour);
+          if (cell.querySelector('.hour-text').textContent !== hrTxt) {
+            cell.querySelector('.hour-text').textContent = hrTxt;
+          }
         }
 
         cell.setAttribute('aria-label', cellDt.toFormat('cccc, LLLL d, h a ZZZZ'));
@@ -215,7 +234,11 @@ export function updateGrid() {
       const tzOffset = selectedInZone.offset;
       const diffHrs = (tzOffset - localOffset) / 60;
       const diffStr = diffHrs === 0 ? '' : diffHrs > 0 ? ` · +${diffHrs}h` : ` · ${diffHrs}h`;
-      metaEl.textContent = `${abbr} · UTC${offset}${diffStr}`;
+      const newMeta = `${abbr} · UTC${offset}${diffStr}`;
+
+      if (metaEl.textContent !== newMeta) {
+        metaEl.textContent = newMeta;
+      }
 
       const nameEl = row.label.querySelector('.tz-name');
       if (nameEl) {
@@ -226,17 +249,12 @@ export function updateGrid() {
           existingBadge.remove();
         }
       }
-    } else if (selectionChanged) {
-      for (let i = 0; i < TOTAL_HOURS; i++) {
-        if (i === selectedHourIndex) {
-          cells[i].classList.add('selected');
-        } else {
-          cells[i].classList.remove('selected');
-        }
-      }
     }
 
-    timeEl.textContent = selectedInZone.toFormat('h:mm a');
+    const newTime = selectedInZone.toFormat('h:mm a');
+    if (timeEl.textContent !== newTime) {
+      timeEl.textContent = newTime;
+    }
     timeEl.setAttribute('datetime', selectedInZone.toISO());
   }
 }
