@@ -1376,6 +1376,26 @@ body {
     --row-height: 38px;
   }
 
+  /* Stack timezone name above current time so neither gets squeezed to one char */
+  .tz-label {
+    padding: 0 8px;
+  }
+
+  .tz-info-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+  }
+
+  .tz-name {
+    padding-right: 0;
+  }
+
+  .tz-current-time {
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
   .header {
     padding: 10px 12px;
     gap: 6px;
