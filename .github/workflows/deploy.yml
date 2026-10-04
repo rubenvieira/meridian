@@ -1,9 +1,17 @@
-name: Deploy to DigitalOcean Droplet
+name: Deploy to rubenv.net/tools
 
 on:
   push:
     branches:
       - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -11,71 +19,52 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      - name: Setup Node.js
+      - name: Set up Node.js
         if: hashFiles('package.json') != ''
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '20'
+          node-version: '22'
 
-      - name: Install and Build for Node.js Project
-        if: hashFiles('package.json') != ''
-        env:
-          PUBLIC_URL: /tools/meridian
+      - name: Build
         run: |
-          npm install
-          if grep -q "vite" package.json; then
-            # Patch React Router to use the correct basename for subpath hosting
-            if [ -f "src/App.tsx" ] && grep -q "BrowserRouter" src/App.tsx; then
-              sed -i 's|<BrowserRouter>|<BrowserRouter basename="/tools/meridian">|g' src/App.tsx
+          install() {
+            if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+          }
+          if [ -f package.json ] && grep -q '"vite"' package.json; then
+            install
+            # Served from /tools/meridian/: give a bare React Router that basename.
+            if [ -f src/App.tsx ] && grep -q '<BrowserRouter>' src/App.tsx; then
+              sed -i 's|<BrowserRouter>|<BrowserRouter basename="/tools/meridian">|' src/App.tsx
             fi
-            # Build with Vite using the --base flag to set correct asset paths
             npx vite build --base=/tools/meridian/
-          else
+          elif [ -f package.json ] && node -e 'process.exit(require("./package.json").scripts?.build ? 0 : 1)'; then
+            install
             npm run build
+          else
+            mkdir -p dist
+            rsync -a --exclude=.git --exclude=.github --exclude=node_modules --exclude=dist --exclude=serve.json ./ dist/
           fi
+          test -f dist/index.html
 
-      - name: Verify SSH Key Secret
-        run: |
-          if [ -z "${{ secrets.DROPLET_SSH_KEY }}" ]; then
-            echo "::error::DROPLET_SSH_KEY secret is not set in the GitHub repository secrets. Please check the Supabase project's environment variables and the 'create-github-repo' Edge Function logs for validation errors."
-            exit 1
-          fi
-          echo "DROPLET_SSH_KEY secret is present. Proceeding with deployment."
-
-      - name: Deploy Node.js project
-        if: hashFiles('package.json') != ''
-        uses: appleboy/scp-action@v1
+      - name: Upload to the server
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "dist/**"
+          source: "dist"
           target: "/var/www/rubenv.net/htdocs/tools/meridian"
-          overwrite: true
           strip_components: 1
-
-      - name: Deploy Static Site
-        if: hashFiles('package.json') == ''
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.DROPLET_HOST }}
-          username: ${{ secrets.DROPLET_USER }}
-          key: ${{ secrets.DROPLET_SSH_KEY }}
-          source: "./"
-          target: "/var/www/rubenv.net/htdocs/tools/meridian"
           overwrite: true
 
-      - name: Clean up static site deployment
-        if: hashFiles('package.json') == ''
-        uses: appleboy/ssh-action@v1
+      - name: Set permissions
+        uses: appleboy/ssh-action@2ead5e36573f08b82fbfce1504f1a4b05a647c6f # v1.2.2
         with:
           host: ${{ secrets.DROPLET_HOST }}
           username: ${{ secrets.DROPLET_USER }}
           key: ${{ secrets.DROPLET_SSH_KEY }}
           script: |
-            echo "Cleaning up deployment for meridian..."
-            rm -rf /var/www/rubenv.net/htdocs/tools/meridian/.git
-            rm -rf /var/www/rubenv.net/htdocs/tools/meridian/.github
-            echo "Cleanup complete."
+            chown -R www-data:www-data /var/www/rubenv.net/htdocs/tools/meridian
+            chmod -R u=rwX,go=rX /var/www/rubenv.net/htdocs/tools/meridian
